@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paris-map-app-v1';
+const CACHE_NAME = 'paris-map-app-v2';
 const ASSETS_TO_CACHE = [
   '/', '/index.html', '/style.css', '/app.js', '/db.js', '/libs/leaflet.min.js', '/libs/leaflet.min.css'
 ];
@@ -12,7 +12,11 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(names => Promise.all(
+      names.filter(name => name !== CACHE_NAME && name !== 'osm-tiles').map(name => caches.delete(name))
+    )).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', event => {
@@ -22,11 +26,11 @@ self.addEventListener('fetch', event => {
   // Cache-first for Leaflet local assets and app shell
   if (ASSETS_TO_CACHE.includes(url.pathname)) {
     event.respondWith(
-      caches.match(event.request).then(cached => cached || fetch(event.request).then(resp => {
+      caches.open(CACHE_NAME).then(cache => cache.match(event.request).then(cached => cached || fetch(event.request).then(resp => {
         const copy = resp.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+        cache.put(event.request, copy);
         return resp;
-      }))
+      })))
     );
     return;
   }
@@ -47,6 +51,6 @@ self.addEventListener('fetch', event => {
       const cacheResp = resp.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(event.request, cacheResp));
       return resp;
-    }).catch(() => caches.match(event.request).then(cached => cached || (event.request.mode === 'navigate' ? caches.match(OFFLINE_URL) : undefined)))
+    }).catch(() => caches.open(CACHE_NAME).then(cache => cache.match(event.request)).then(cached => cached || (event.request.mode === 'navigate' ? cache.match(OFFLINE_URL) : undefined)))
   );
 });
