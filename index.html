@@ -1,45 +1,78 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paris Map — Prototype Offline</title>
-<link rel="stylesheet" href="libs/leaflet.min.css"/>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Paris Map — Prototype Offline</title>
+        <meta name="theme-color" content="#2A9D8F">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="mobile-web-app-capable" content="yes">
+        <link rel="manifest" href="manifest.json">
+        <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/icon-192.svg">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
+        <meta name="apple-mobile-web-app-title" content="Paris Map">
+        <link rel="stylesheet" href="libs/leaflet.min.css"/>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
 
-<header>
-  <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
-  <div class="header-spacer"></div>
-  <span class="poi-count" id="poi-count">0 lieux</span>
-  <button class="btn-export" onclick="exportData()">Exporter</button>
-</header>
+        <header>
+            <h1>SW : v19</h1>
+            <h1>HTML : v19</h1>
+            <p>coucou</p>
+            <!-- Bouton unique : reset complet -->
+            <button onclick="hardResetPWA()">Hard Reset</button>
 
-<div class="filter-bar" id="filter-bar"></div>
+            <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
+            <div class="header-spacer"></div>
+            <span class="poi-count" id="poi-count">0 lieux</span>
+            <button class="btn-export" onclick="exportData()">Exporter</button>
+        </header>
 
-<div class="main">
-  <div id="map"></div>
-  <div class="map-hint" id="map-hint">Double-clic sur la carte pour ajouter un lieu</div>
-  <div class="panel" id="panel">
-    <div class="panel-header">
-      <div class="panel-title" id="panel-title">Nouveau lieu</div>
-      <button class="btn-close" onclick="closePanel()">✕</button>
-    </div>
-    <div class="panel-body" id="panel-body"></div>
-    <div class="panel-footer" id="panel-footer"></div>
-  </div>
-</div>
+        <div class="filter-bar" id="filter-bar"></div>
 
-<div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-  <img id="lightbox-img" src="" alt="">
-</div>
+        <div class="main">
+        <div id="map"></div>
+        <div class="map-hint" id="map-hint">Double-clic sur la carte pour ajouter un lieu</div>
+        <div class="panel" id="panel">
+            <div class="panel-header">
+            <div class="panel-title" id="panel-title">Nouveau lieu</div>
+            <button class="btn-close" onclick="closePanel()">✕</button>
+            </div>
+            <div class="panel-body" id="panel-body"></div>
+            <div class="panel-footer" id="panel-footer"></div>
+        </div>
+        </div>
 
-<div class="toast" id="toast"></div>
+        <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <img id="lightbox-img" src="" alt="">
+        </div>
 
-<script src="libs/leaflet.min.js"></script>
-<script src="db.js"></script>
-<script src="app.js"></script>
-</body>
+        <div class="toast" id="toast"></div>
+
+        <script src="libs/leaflet.min.js"></script>
+        <script src="db.js"></script>
+        <script src="app.js"></script>
+        <script>
+
+
+    /* ------------------------------
+       BANNIÈRE DE MISE À JOUR
+    ------------------------------ */
+
+    function showUpdateBanner(registration) {
+      console.log('banner');
+    }
+
+    /* ------------------------------
+       RESET COMPLET DE LA PWA
+    ------------------------------ */
+
+    async function hardResetPWA() {
+      console.log('reset');
+    }
+
+  </script>
+    </body>
 </html>

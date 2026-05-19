@@ -1,56 +1,96 @@
-const CACHE_NAME = 'paris-map-app-v2';
+const SW_VERSION = 'v3';
+const CACHE_NAME = `paris-map-app-${SW_VERSION}`;
 const ASSETS_TO_CACHE = [
   '/', '/index.html', '/style.css', '/app.js', '/db.js', '/libs/leaflet.min.js', '/libs/leaflet.min.css'
 ];
 const OFFLINE_URL = '/index.html';
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(ASSETS_TO_CACHE);
+  })());
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(names => Promise.all(
-      names.filter(name => name !== CACHE_NAME && name !== 'osm-tiles').map(name => caches.delete(name))
-    )).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter(key => key !== CACHE_NAME && key !== 'osm-tiles').map(key => caches.delete(key))
+    );
+    await self.clients.claim();
+    const clientsList = await self.clients.matchAll({ includeUncontrolled: false });
+    for (const client of clientsList) {
+      client.postMessage({ type: 'SW_VERSION', version: SW_VERSION });
+    }
+  })());
 });
 
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  if (event.request.method !== 'GET') return;
+  const request = event.request;
+  if (request.method !== 'GET') return;
 
-  // Cache-first for Leaflet local assets and app shell
-  if (ASSETS_TO_CACHE.includes(url.pathname)) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(cache => cache.match(event.request).then(cached => cached || fetch(event.request).then(resp => {
-        const copy = resp.clone();
-        cache.put(event.request, copy);
-        return resp;
-      })))
-    );
+  const url = new URL(request.url);
+
+  const isAppShell = ASSETS_TO_CACHE.includes(url.pathname);
+  const isOsmTile = url.hostname.includes('tile.openstreetmap.org');
+
+  if (isAppShell) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      cache.put(request, response.clone());
+      return response;
+    })());
     return;
   }
 
-  // Simple cache-first for OSM tiles
-  if (url.hostname.includes('tile.openstreetmap.org')) {
-    event.respondWith(
-      caches.open('osm-tiles').then(cache =>
-        cache.match(event.request).then(resp => resp || fetch(event.request).then(fresp => { cache.put(event.request, fresp.clone()); return fresp; }))
-      )
-    );
+  if (isOsmTile) {
+    event.respondWith((async () => {
+      const cache = await caches.open('osm-tiles');
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      cache.put(request, response.clone());
+      return response;
+    })());
     return;
   }
 
-  // Network-first for other requests, fallback to cache or offline page
-  event.respondWith(
-    fetch(event.request).then(resp => {
-      const cacheResp = resp.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(event.request, cacheResp));
-      return resp;
-    }).catch(() => caches.open(CACHE_NAME).then(cache => cache.match(event.request)).then(cached => cached || (event.request.mode === 'navigate' ? cache.match(OFFLINE_URL) : undefined)))
-  );
+  if (request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request, { cache: 'no-store' });
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(request, response.clone());
+        return response;
+      } catch (err) {
+        const cache = await caches.open(CACHE_NAME);
+        return await cache.match(request) || await cache.match(OFFLINE_URL);
+      }
+    })());
+    return;
+  }
+
+  event.respondWith((async () => {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, response.clone());
+    return response;
+  })());
+});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+
+  if (event.data?.type === 'GET_VERSION') {
+    event.source.postMessage({ type: 'SW_VERSION', version: SW_VERSION });
+  }
 });

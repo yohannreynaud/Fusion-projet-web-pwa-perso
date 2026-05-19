@@ -1,0 +1,172 @@
+
+/* ------------------------------
+    ENREGISTREMENT DU SERVICE WORKER
+------------------------------ */
+
+if ('serviceWorker' in navigator) { // Teste si le navigateur supporte les service workers
+    window.addEventListener('load', async () => { // vraie une fois que la page est complètement chargée
+        
+        // Si un SW contrôle déjà la page, on lui demande sa version pour l'afficher dans la console (utile aussi pour vérifier que le skipWaiting a bien fonctionné après une mise à jour).
+        if (navigator.serviceWorker.controller) {
+            console.log('[SW] Un SW contrôle déjà cette page. Récupération de sa version…');
+            navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' });
+        }
+
+        console.log('[SW] Récupération de la dernière version du SW (sw.js) mise à disposition par le serveur…');
+        // représente l’inscription du SW pour le scope courant (ici : /pwa/). C’est un objet qui contient des infos sur le SW installé, et qui émet des événements liés à son cycle de vie (install, updatefound, etc.).
+        const registration = await navigator.serviceWorker.register('/pwa/sw.js');
+        console.log('[SW] La version du SW du serveur est récupérée. Comparaison avec le SW actif…');
+        /*
+        Précisions sur la gestion des SW par le navigateur : un SW peut avoir trois états : active (contrôle la page), waiting (en attente de prendre le contrôle) et installing (en cours d'installation).
+        Au moment du register(), on pourrait se retrouver avec 3 SW : 1 SW active, 1 SW caiting et 1 SW installing. 
+        En réalité le navigateur éjecte automatiquement le SW waiting dès qu'il détecte un SW installing (le SW installing deviendra le nouveau SW waiting).
+        */
+        if (registration.active && !registration.waiting && !registration.installing) {
+            console.log('[SW] Le SW chargé depuis le serveur est identique au SW actif : aucune mise à jour requise.');
+        }
+
+        /*
+        Au moment où on recharge la page, on vérifie si un SW est en attente de prise de contrôle (waiting)
+        Cela arrive quand un SW a été précédement installé mais n'a jamais
+        pu prendre le contrôle (pas de skipWaiting, onglet non fermé).
+        On a alors 2 SW :
+        - N°1 : active  (contrôle la page)
+        - N°2 : waiting (prêt à prendre le contrôle dès skipWaiting)
+        */
+        if (registration.waiting) { // vrai si un SW (N°2) est  installé et en attente de prendre le contrôle (waiting) → on affiche la bannière qui permet de déclencher skipWaiting et ainsi activer le nouveau SW.
+            console.log('[SW] Un SW a été installé, il est en attente de prise de contrôle. Veuillez rafraîchir la page pour l\'activer.');
+            showUpdateBanner(registration);
+        }
+
+        // EventListener qui détecte l'arrivée d'un nouveau SW (updatefound) → on affiche la bannière qui permet de déclencher skipWaiting et ainsi activer le nouveau SW.
+        registration.addEventListener('updatefound', () => {
+            console.log('[SW] Nouvelle version du SW trouvée → tentative d\'installation…');
+            const newWorker = registration.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed') {
+                    console.log('[SW] Nouveau SW installé et prêt à remplacer le SW actif → Veuillez valider le changement de SW en cliquant sur le bouton de la bannière de mise à jour.');
+                    showUpdateBanner(registration);
+                }
+            });
+        });
+
+        // EventListener qui détecte le changement de SW controlant la page (controllerchange) → on recharge la page pour actualiser l\'affichage des ressources.
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('[SW] Changement de SW controlant la page → reload de la page pour actualiser l\'affichage des ressources');
+            window.location.reload();
+        });
+
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data?.type === 'SW_VERSION') {
+                console.log('[SW] Version du SW actif :', event.data.version);
+            }
+        });
+
+        /* ------------------------------
+        POLLING PÉRIODIQUE
+        Vérifie toutes les 60s si sw.js a changé sur le serveur.
+        ------------------------------ */
+        setInterval(async () => {
+            try {
+                await registration.update();
+                console.log('[SW] Vérification mise à jour…');
+            } catch (err) {
+                console.warn('[SW] Échec vérification mise à jour', err);
+            }
+        }, 60 * 1000); // toutes les 60 secondes
+    });
+}
+
+/* ------------------------------
+    BANNIÈRE DE MISE À JOUR
+------------------------------ */
+
+function showUpdateBanner(registration) {
+    if (document.getElementById('pwa-update-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'pwa-update-banner';
+    banner.style.position = 'fixed';
+    banner.style.bottom = '0';
+    banner.style.left = '0';
+    banner.style.right = '0';
+    banner.style.padding = '12px 16px';
+    banner.style.background = '#222';
+    banner.style.color = '#fff';
+    banner.style.display = 'flex';
+    banner.style.justifyContent = 'space-between';
+    banner.style.alignItems = 'center';
+    banner.style.zIndex = '9999';
+
+    const text = document.createElement('span');
+    text.textContent = 'Une nouvelle version du SW est disponible.';
+
+    const updateBtn = document.createElement('button');
+    updateBtn.textContent = 'Mettre à jour';
+    updateBtn.style.marginLeft = '8px';
+
+    updateBtn.addEventListener('click', () => {
+    if (registration.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    });
+
+    banner.appendChild(text);
+    banner.appendChild(updateBtn);
+    document.body.appendChild(banner);
+}
+
+/* ------------------------------
+    RESET COMPLET DE LA PWA
+------------------------------ */
+
+async function hardResetPWA() {
+    console.log('[RESET] Réinitialisation complète…');
+
+    // FIX : on désactive le listener controllerchange AVANT de déclencher
+    // skipWaiting, pour éviter que le reload automatique interrompe les
+    // étapes suivantes (vidage des caches, unregister) qui n'auraient
+    // jamais le temps de s'exécuter.
+    navigator.serviceWorker.oncontrollerchange = null;
+
+    const reg = await navigator.serviceWorker.getRegistration();
+
+    try {
+    // 1) Forcer une mise à jour
+    if (reg) {
+        console.log('[RESET] registration.update()');
+        await reg.update();
+    }
+
+    // 2) Forcer skipWaiting si un SW est en attente
+    if (reg?.waiting) {
+        console.log('[RESET] skipWaiting()');
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        // On attend que le nouveau SW prenne le contrôle avant de continuer
+        await new Promise(resolve => {
+        navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+        });
+    }
+
+    // 3) Vider tous les caches
+    const keys = await caches.keys();
+    for (const key of keys) {
+        console.log('[RESET] Suppression du cache', key);
+        await caches.delete(key);
+    }
+
+    // 4) Désenregistrer le SW
+    if (reg) {
+        console.log('[RESET] unregister()');
+        await reg.unregister();
+    }
+
+    } catch (err) {
+    console.error('[RESET] Erreur', err);
+    }
+
+    // 5) Reload final
+    console.log('[RESET] Reload');
+    window.location.reload();
+}
