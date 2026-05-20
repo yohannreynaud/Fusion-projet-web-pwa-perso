@@ -204,12 +204,15 @@ let allPois = [];
 // MAP INIT
 // ═══════════════════════════════════════════════
 function initMap() {
-  map = L.map('map', {
+    map = L.map('map', {
     center: [48.8566, 2.3522],
     zoom: 13,
     preferCanvas: true,
     zoomControl: false,
-  });
+    tap: false,              // ← essentiel sur iOS
+    touchZoom: true,
+    dragging: true
+    });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -239,6 +242,11 @@ function initMap() {
             openAddForm();
         }, LONG_PRESS_DURATION);
     });
+
+    map.on('touchstart', e => {
+        e.originalEvent.preventDefault();
+    });
+
 
     map.on('mouseup touchend mousemove touchmove drag', () => {
         if (longPressTimer) {

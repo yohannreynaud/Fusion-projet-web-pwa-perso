@@ -122,6 +122,10 @@ header {
 #map {
   flex: 1;
   z-index: 1;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .map-hint {
