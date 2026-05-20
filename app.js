@@ -428,27 +428,91 @@ function closePanel() {
 // ═══════════════════════════════════════════════
 // FILTER BAR
 // ═══════════════════════════════════════════════
-function renderFilterBar() {
-  const bar = document.getElementById('filter-bar');
-  bar.innerHTML = '';
-  for (const [key, cat] of Object.entries(CATEGORIES)) {
-    const chip = document.createElement('button');
-    chip.className = 'filter-chip' + (activeCategories.has(key) ? ' active' : '');
-    chip.innerHTML = `<span class="dot" style="background:${cat.color}"></span>${cat.icon} ${cat.label}`;
-    chip.onclick = () => toggleCategory(key);
-    bar.appendChild(chip);
+
+
+// ═══════════════════════════════════════════════
+// MENU FILTRE (carte + liste)
+// ═══════════════════════════════════════════════
+let currentFilterContext = 'map'; // 'map' | 'list'
+
+function openFilterMenu(context) {
+  currentFilterContext = context;
+  const cats = context === 'map' ? activeCategories : activeListCategories;
+  const body = document.getElementById('filter-menu-body');
+
+  body.innerHTML = Object.entries(CATEGORIES).map(([key, cat]) => {
+    const sel = cats.has(key);
+    return `
+      <div class="filter-row${sel ? ' selected' : ''}"
+           style="color:${cat.color}"
+           onclick="toggleFilterRow(this, '${key}')">
+        <span class="filter-row-icon">${cat.icon}</span>
+        <span class="filter-row-label">${cat.label}</span>
+        <span class="filter-row-check"></span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('filter-overlay').classList.add('open');
+  document.getElementById('filter-menu').classList.add('open');
+}
+
+function toggleFilterRow(el, key) {
+  const cats = currentFilterContext === 'map' ? activeCategories : activeListCategories;
+  if (cats.has(key)) {
+    cats.delete(key);
+    el.classList.remove('selected');
+  } else {
+    cats.add(key);
+    el.classList.add('selected');
+  }
+  applyFilters();
+}
+
+function selectAllCategories() {
+  const cats = currentFilterContext === 'map' ? activeCategories : activeListCategories;
+  Object.keys(CATEGORIES).forEach(k => cats.add(k));
+  // Re-render rows
+  document.querySelectorAll('#filter-menu-body .filter-row').forEach(row => {
+    row.classList.add('selected');
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  if (currentFilterContext === 'map') {
+    // Sync les layer groups Leaflet
+    for (const key of Object.keys(CATEGORIES)) {
+      if (activeCategories.has(key)) {
+        if (!map.hasLayer(layers[key])) layers[key].addTo(map);
+      } else {
+        if (map.hasLayer(layers[key])) map.removeLayer(layers[key]);
+      }
+    }
+    updateFilterButton('map', activeCategories);
+  } else {
+    renderList();
+    updateFilterButton('list', activeListCategories);
   }
 }
 
-function toggleCategory(key) {
-  if (activeCategories.has(key)) {
-    activeCategories.delete(key);
-    map.removeLayer(layers[key]);
-  } else {
-    activeCategories.add(key);
-    layers[key].addTo(map);
+function updateFilterButton(context, cats) {
+  const total = Object.keys(CATEGORIES).length;
+  const active = cats.size;
+  const isFiltered = active < total;
+
+  const btn = document.getElementById(`btn-filter-${context}`);
+  const badge = document.getElementById(`filter-count-${context}`);
+
+  if (btn) btn.classList.toggle('has-filter', isFiltered);
+  if (badge) {
+    badge.textContent = active;
+    badge.classList.toggle('visible', isFiltered);
   }
-  renderFilterBar();
+}
+
+function closeFilterMenu() {
+  document.getElementById('filter-overlay').classList.remove('open');
+  document.getElementById('filter-menu').classList.remove('open');
 }
 
 // ═══════════════════════════════════════════════
@@ -887,14 +951,38 @@ function goToPoiOnMap(poiId) {
     if (markers[poiId]) markers[poiId].openPopup();
   }, 50);
 }
+// ═══════════════════════════════════════════════
+// PARAMÈTRES
+// ═══════════════════════════════════════════════
+async function deleteAllPois() {
+  if (!confirm('Supprimer tous les lieux définitivement ? Cette action est irréversible.')) return;
+  const pois = await dbGetAll('poi');
+  for (const poi of pois) {
+    const photos = await dbGetByIndex('photos', 'poiId', poi.id);
+    for (const p of photos) await dbDelete('photos', p.photoId);
+    await dbDelete('poi', poi.id);
+    removeMarkerFromMap(poi.id);
+  }
+  allPois = [];
+  updatePoiCount();
+  renderList();
+  showToast('🗑️ Tous les lieux ont été supprimés');
+}
 
+async function clearCache() {
+  if (!confirm('Vider le cache de l\'application ?')) return;
+  const keys = await caches.keys();
+  for (const key of keys) await caches.delete(key);
+  showToast('✅ Cache vidé');
+}
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
 (async function init() {
     await initDB();
     initMap();
-    renderFilterBar();
+    updateFilterButton('map', activeCategories);
+    updateFilterButton('list', activeListCategories);
     allPois = await dbGetAll('poi');
     for (const poi of allPois) addMarkerToMap(poi);
     updatePoiCount();
