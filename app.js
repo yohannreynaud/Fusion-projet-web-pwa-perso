@@ -315,10 +315,14 @@ function addMarkerToMap(poi) {
 }
 
 async function loadPopupPhotos(poiId) {
+  console.log("Photos brutes =", photos);
+
+
   const container = document.getElementById(`popup-photos-${poiId}`);
   if (!container) return;
 
   const photos = await dbGetByIndex('photos', 'poiId', poiId);
+  
 
   if (!photos.length) {
     container.innerHTML = `<div class="popup-no-photo">Aucune photo</div>`;
