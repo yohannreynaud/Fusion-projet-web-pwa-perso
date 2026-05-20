@@ -222,11 +222,26 @@ function initMap() {
     layers[key] = L.layerGroup().addTo(map);
   }
 
-  map.on('dblclick', e => {
-    e.originalEvent.preventDefault();
-    pendingLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
-    openAddForm();
-  });
+    // Dans initMap(), à la place du dblclick :
+    let longPressTimer = null;
+    const LONG_PRESS_DURATION = 600; // ms
+
+    map.on('mousedown touchstart', e => {
+        console.log('mousedown/touchstart');
+        const latlng = e.latlng;
+        longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
+            openAddForm();
+        }, LONG_PRESS_DURATION);
+    });
+
+    map.on('mouseup touchend mousemove touchmove', () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
 
   map.on('movestart', hideHint);
 }
