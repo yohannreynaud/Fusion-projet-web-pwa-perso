@@ -202,16 +202,18 @@ let allPois = [];
 // MAP INIT
 // ═══════════════════════════════════════════════
 function initMap() {
-  map = L.map('map', {
+    map = L.map('map', {
     center: [48.8566, 2.3522],
     zoom: 13,
     preferCanvas: true,
     zoomControl: false,
-    tap: false
-  });
+    tap: false,              // ← essentiel sur iOS
+    touchZoom: true,
+    dragging: true
+    });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19,
     minZoom: 10,
     crossOrigin: true,
@@ -221,49 +223,38 @@ function initMap() {
     layers[key] = L.layerGroup().addTo(map);
   }
 
-  // ───────────────────────────────────────────────
-  // APPUI LONG (ne bloque PAS les clics Leaflet)
-  // ───────────────────────────────────────────────
-  let longPressTimer = null;
-  const LONG_PRESS_DURATION = 600;
-  let moved = false;
+    let longPressTimer = null;
+    const LONG_PRESS_DURATION = 600;
 
-  map.on('pointerdown', e => {
-    moved = false;
+    map.on('contextmenu', e => {
+        // Bloque le menu contextuel natif iOS/Android
+        e.originalEvent.preventDefault();
+    });
 
-    const latlng = e.latlng;
-    if (!latlng) return;
+    map.on('mousedown touchstart', e => {
+        const latlng = e.latlng;
+        if (!latlng) return;
+        longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
+            openAddForm();
+        }, LONG_PRESS_DURATION);
+    });
 
-    longPressTimer = setTimeout(() => {
-      longPressTimer = null;
+    map.on('touchstart', e => {
+        e.originalEvent.preventDefault();
+    });
 
-      // IMPORTANT : on NE bloque PAS le click Leaflet
-      pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
-      openAddForm();
-    }, LONG_PRESS_DURATION);
-  });
 
-  map.on('pointermove', () => {
-    moved = true;
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  });
+    map.on('mouseup touchend mousemove touchmove drag', () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    });
 
-  map.on('pointerup pointercancel', () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  });
-
-  // ───────────────────────────────────────────────
-  // Masquer le hint
-  // ───────────────────────────────────────────────
   map.on('movestart', hideHint);
 }
-
 
 
 let hintHidden = false;
