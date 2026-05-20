@@ -187,6 +187,7 @@ async function hardResetPWA() {
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
+let activeListCategories = new Set(Object.keys(CATEGORIES));
 let map;
 const layers = {};
 const markers = {};
@@ -658,6 +659,7 @@ async function savePoi() {
 
   allPois = await dbGetAll('poi');
   updatePoiCount();
+  renderList();
 
   closePanel();
   showToast(editPoiId ? '✅ Lieu mis à jour' : '✅ Lieu ajouté !');
@@ -710,6 +712,7 @@ async function deletePoi(poiId) {
   removeMarkerFromMap(poiId);
   allPois = await dbGetAll('poi');
   updatePoiCount();
+  renderList();
   closePanel();
   showToast('🗑️ Lieu supprimé');
 }
@@ -783,31 +786,120 @@ function updatePoiCount() {
 // NAVIGATION PAR ONGLETS
 // ═══════════════════════════════════════════════
 function switchView(viewName, btnEl) {
-  // Masque toutes les vues
-  document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
-  // Désactive tous les boutons nav
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
 
-  // Active la vue et le bouton correspondants
-  document.getElementById(`view-${viewName}`).classList.add('active');
-  btnEl.classList.add('active');
+    document.getElementById(`view-${viewName}`).classList.add('active');
+    btnEl.classList.add('active');
 
-  // Si on revient sur la carte, forcer Leaflet à recalculer sa taille
-  if (viewName === 'map') {
-    setTimeout(() => map.invalidateSize(), 10);
+    if (viewName === 'map') {
+        setTimeout(() => map.invalidateSize(), 10);
+    }
+    if (viewName === 'list') {
+        renderList();
+    }
+}
+
+// ═══════════════════════════════════════════════
+// ONGLET LISTE
+// ═══════════════════════════════════════════════
+function renderListFilterBar() {
+  const bar = document.getElementById('filter-bar-list');
+  bar.innerHTML = '';
+  for (const [key, cat] of Object.entries(CATEGORIES)) {
+    const chip = document.createElement('button');
+    chip.className = 'filter-chip' + (activeListCategories.has(key) ? ' active' : '');
+    chip.innerHTML = `<span class="dot" style="background:${cat.color}"></span>${cat.icon} ${cat.label}`;
+    chip.onclick = () => toggleListCategory(key);
+    bar.appendChild(chip);
   }
+}
+
+function toggleListCategory(key) {
+  if (activeListCategories.has(key)) {
+    activeListCategories.delete(key);
+  } else {
+    activeListCategories.add(key);
+  }
+  renderListFilterBar();
+  renderList();
+}
+
+function renderList() {
+  const body = document.getElementById('list-body');
+  if (!body) return;
+
+  const filtered = allPois.filter(poi =>
+    activeListCategories.has(poi.content.category || 'other')
+  );
+
+  // Tri par date de création décroissante
+  filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  document.getElementById('poi-count-list').textContent =
+    `${filtered.length} lieu${filtered.length !== 1 ? 'x' : ''}`;
+
+  if (!filtered.length) {
+    body.innerHTML = `
+      <div class="list-empty-state">
+        <span>📍</span>
+        <p>Aucun lieu pour ces filtres.</p>
+      </div>`;
+    return;
+  }
+
+  body.innerHTML = filtered.map(poi => {
+    const cat = CATEGORIES[poi.content.category] || CATEGORIES.other;
+    const tagsHtml = (poi.content.tags || []).slice(0, 4)
+      .map(t => `<span class="detail-tag">${escHtml(t)}</span>`).join('');
+    const descHtml = poi.content.description
+      ? `<div class="list-card-desc">${escHtml(poi.content.description)}</div>` : '';
+    const tagsSection = tagsHtml
+      ? `<div class="list-card-tags">${tagsHtml}</div>` : '';
+
+    return `
+      <div class="list-card">
+        <div class="list-card-header">
+          <span class="list-card-badge" style="background:${cat.color}">${cat.icon} ${cat.label}</span>
+          <div class="list-card-title">${escHtml(poi.content.title || 'Sans titre')}</div>
+        </div>
+        ${descHtml}
+        ${tagsSection}
+        <div class="list-card-actions">
+          <button class="popup-btn" onclick="openDetail('${poi.id}')">Voir détails</button>
+          <button class="popup-btn primary" onclick="goToPoiOnMap('${poi.id}')">📍 Voir sur la carte</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function goToPoiOnMap(poiId) {
+  const poi = allPois.find(p => p.id === poiId);
+  if (!poi) return;
+
+  // Bascule vers l'onglet carte
+  const mapBtn = document.querySelector('.nav-btn[data-view="map"]');
+  switchView('map', mapBtn);
+
+  // Centre et zoome sur le marqueur
+  setTimeout(() => {
+    map.setView([poi.location.lat, poi.location.lng], 17, { animate: true });
+    if (markers[poiId]) markers[poiId].openPopup();
+  }, 50);
 }
 
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
 (async function init() {
-  await initDB();
-  initMap();
-  renderFilterBar();
-  allPois = await dbGetAll('poi');
-  for (const poi of allPois) addMarkerToMap(poi);
-  updatePoiCount();
-  setTimeout(() => document.getElementById('map-hint').classList.add('hidden'), 6000);
-  console.log(`✅ Paris Map initialisé — ${allPois.length} POI chargés depuis IndexedDB`);
+    await initDB();
+    initMap();
+    renderFilterBar();
+    allPois = await dbGetAll('poi');
+    for (const poi of allPois) addMarkerToMap(poi);
+    updatePoiCount();
+    setTimeout(() => document.getElementById('map-hint').classList.add('hidden'), 6000);
+    console.log(`✅ Paris Map initialisé — ${allPois.length} POI chargés depuis IndexedDB`);
+    renderListFilterBar();
+    renderList();
 })();
