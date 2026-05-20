@@ -207,49 +207,51 @@ function initMap() {
     zoom: 13,
     preferCanvas: true,
     zoomControl: false,
-    tap: false,          // ← indispensable sur mobile
-    touchZoom: true,
-    dragging: true
+    tap: false
   });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    attribution: '© OpenStreetMap',
     maxZoom: 19,
     minZoom: 10,
     crossOrigin: true,
   }).addTo(map);
 
-  // Création des LayerGroups par catégorie
   for (const key of Object.keys(CATEGORIES)) {
     layers[key] = L.layerGroup().addTo(map);
   }
 
   // ───────────────────────────────────────────────
-  // APPUI LONG (version universelle)
+  // APPUI LONG (ne bloque PAS les clics Leaflet)
   // ───────────────────────────────────────────────
   let longPressTimer = null;
   const LONG_PRESS_DURATION = 600;
+  let moved = false;
 
-  // Détection de l'appui
   map.on('pointerdown', e => {
+    moved = false;
+
     const latlng = e.latlng;
     if (!latlng) return;
 
-    // Empêche Leaflet de déclencher un drag trop tôt
-    map.dragging.disable();
-
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
-      map.dragging.enable();
 
+      // IMPORTANT : on NE bloque PAS le click Leaflet
       pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
       openAddForm();
     }, LONG_PRESS_DURATION);
   });
 
-  // Annulation si l'utilisateur bouge ou relâche
-  map.on('pointerup pointercancel pointermove drag', () => {
-    map.dragging.enable();
+  map.on('pointermove', () => {
+    moved = true;
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  });
+
+  map.on('pointerup pointercancel', () => {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
@@ -257,10 +259,11 @@ function initMap() {
   });
 
   // ───────────────────────────────────────────────
-  // Masquer le hint au premier mouvement
+  // Masquer le hint
   // ───────────────────────────────────────────────
   map.on('movestart', hideHint);
 }
+
 
 
 let hintHidden = false;
