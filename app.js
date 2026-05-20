@@ -208,7 +208,7 @@ function initMap() {
     center: [48.8566, 2.3522],
     zoom: 13,
     preferCanvas: true,
-    zoomControl: true,
+    zoomControl: false,
   });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -222,13 +222,17 @@ function initMap() {
     layers[key] = L.layerGroup().addTo(map);
   }
 
-    // Dans initMap(), à la place du dblclick :
     let longPressTimer = null;
-    const LONG_PRESS_DURATION = 600; // ms
+    const LONG_PRESS_DURATION = 600;
+
+    map.on('contextmenu', e => {
+        // Bloque le menu contextuel natif iOS/Android
+        e.originalEvent.preventDefault();
+    });
 
     map.on('mousedown touchstart', e => {
-        console.log('mousedown/touchstart');
         const latlng = e.latlng;
+        if (!latlng) return;
         longPressTimer = setTimeout(() => {
             longPressTimer = null;
             pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
@@ -236,7 +240,7 @@ function initMap() {
         }, LONG_PRESS_DURATION);
     });
 
-    map.on('mouseup touchend mousemove touchmove', () => {
+    map.on('mouseup touchend mousemove touchmove drag', () => {
         if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
