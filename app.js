@@ -202,15 +202,15 @@ let allPois = [];
 // MAP INIT
 // ═══════════════════════════════════════════════
 function initMap() {
-    map = L.map('map', {
+  map = L.map('map', {
     center: [48.8566, 2.3522],
     zoom: 13,
     preferCanvas: true,
     zoomControl: false,
-    tap: false,              // ← essentiel sur iOS
+    tap: false,          // ← indispensable sur mobile
     touchZoom: true,
     dragging: true
-    });
+  });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -219,42 +219,49 @@ function initMap() {
     crossOrigin: true,
   }).addTo(map);
 
+  // Création des LayerGroups par catégorie
   for (const key of Object.keys(CATEGORIES)) {
     layers[key] = L.layerGroup().addTo(map);
   }
 
-    let longPressTimer = null;
-    const LONG_PRESS_DURATION = 600;
+  // ───────────────────────────────────────────────
+  // APPUI LONG (version universelle)
+  // ───────────────────────────────────────────────
+  let longPressTimer = null;
+  const LONG_PRESS_DURATION = 600;
 
-    map.on('contextmenu', e => {
-        // Bloque le menu contextuel natif iOS/Android
-        e.originalEvent.preventDefault();
-    });
+  // Détection de l'appui
+  map.on('pointerdown', e => {
+    const latlng = e.latlng;
+    if (!latlng) return;
 
-    map.on('mousedown touchstart', e => {
-        const latlng = e.latlng;
-        if (!latlng) return;
-        longPressTimer = setTimeout(() => {
-            longPressTimer = null;
-            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
-            openAddForm();
-        }, LONG_PRESS_DURATION);
-    });
+    // Empêche Leaflet de déclencher un drag trop tôt
+    map.dragging.disable();
 
-    map.on('touchstart', e => {
-        e.originalEvent.preventDefault();
-    });
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      map.dragging.enable();
 
+      pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
+      openAddForm();
+    }, LONG_PRESS_DURATION);
+  });
 
-    map.on('mouseup touchend mousemove touchmove drag', () => {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    });
+  // Annulation si l'utilisateur bouge ou relâche
+  map.on('pointerup pointercancel pointermove drag', () => {
+    map.dragging.enable();
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  });
 
+  // ───────────────────────────────────────────────
+  // Masquer le hint au premier mouvement
+  // ───────────────────────────────────────────────
   map.on('movestart', hideHint);
 }
+
 
 let hintHidden = false;
 function hideHint() {
@@ -315,10 +322,14 @@ function addMarkerToMap(poi) {
 }
 
 async function loadPopupPhotos(poiId) {
-  const container = document.getElementById(`popup-photos-${poiId}`);
-  if (!container) return;
-
-  const photos = await dbGetByIndex('photos', 'poiId', poiId);
+    
+    
+    const container = document.getElementById(`popup-photos-${poiId}`);
+    if (!container) return;
+    
+    const photos = await dbGetByIndex('photos', 'poiId', poiId);
+    console.log("Photos brutes =", photos);
+  
 
   if (!photos.length) {
     container.innerHTML = `<div class="popup-no-photo">Aucune photo</div>`;
