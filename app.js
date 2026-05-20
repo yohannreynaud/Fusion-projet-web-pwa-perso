@@ -91,11 +91,10 @@ if ('serviceWorker' in navigator) { // Teste si le navigateur supporte les servi
 }
 
 
-/* ------------------------------
-    BANNIÈRE DE MISE À JOUR
------------------------------- */
-
 function showUpdateBanner(registration) {
+    /* ------------------------------
+        BANNIÈRE DE MISE À JOUR DU SW
+    ------------------------------ */
     if (document.getElementById('pwa-update-banner')) return;
 
     const banner = document.createElement('div');
@@ -130,11 +129,10 @@ function showUpdateBanner(registration) {
     document.body.appendChild(banner);
 }
 
-/* ------------------------------
-    RESET COMPLET DE LA PWA
------------------------------- */
-
 async function hardResetPWA() {
+    /* ------------------------------
+        RESET COMPLET DE LA PWA
+    ------------------------------ */
     console.log('[RESET] Réinitialisation complète…');
 
     // FIX : on désactive le listener controllerchange AVANT de déclencher
@@ -312,6 +310,22 @@ function removeMarkerFromMap(poiId) {
     map.removeLayer(markers[poiId]);
     delete markers[poiId];
   }
+}
+
+function openPanel(title) {
+    document.getElementById('panel-title').textContent = title;
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('panel-overlay').classList.add('open'); // ← ajouter
+}
+
+function closePanel() {
+    document.getElementById('panel').classList.remove('open');
+    document.getElementById('panel-overlay').classList.remove('open'); // ← ajouter
+    panelMode = null;
+    editPoiId = null;
+    pendingLatLng = null;
+    formPhotos = [];
+    formTags = [];
 }
 
 // ═══════════════════════════════════════════════
