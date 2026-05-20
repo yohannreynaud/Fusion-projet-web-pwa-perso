@@ -514,3 +514,28 @@ header {
 @media (max-width: 768px) {
     .map-hint { bottom: 16px; }
 }
+
+.popup-thumb-row {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.popup-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.popup-photo-loading {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.popup-no-photo {
+  font-size: 0.8rem;
+  opacity: 0.5;
+}
+

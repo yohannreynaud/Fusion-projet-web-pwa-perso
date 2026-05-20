@@ -289,21 +289,65 @@ function addMarkerToMap(poi) {
     icon: makeMarkerIcon(cat),
   });
   marker.bindPopup(() => {
-    const div = document.createElement('div');
-    const catInfo = CATEGORIES[cat] || CATEGORIES.other;
-    div.innerHTML = `
-      <div class="popup-title">${escHtml(poi.content.title || 'Sans titre')}</div>
-      <div class="popup-cat">${catInfo.icon} ${catInfo.label}</div>
-      <div class="popup-actions">
-        <button class="popup-btn" onclick="openDetail('${poi.id}')">Voir détails</button>
-      </div>
-    `;
-    return div;
-  }, { maxWidth: 240 });
+  const div = document.createElement('div');
+  const catInfo = CATEGORIES[cat] || CATEGORIES.other;
+
+  div.innerHTML = `
+    <div class="popup-title">${escHtml(poi.content.title || 'Sans titre')}</div>
+    <div class="popup-cat">${catInfo.icon} ${catInfo.label}</div>
+    <div class="popup-photos" id="popup-photos-${poi.id}">
+      <div class="popup-photo-loading">Chargement…</div>
+    </div>
+    <div class="popup-actions">
+      <button class="popup-btn" onclick="openDetail('${poi.id}')">Voir détails</button>
+    </div>
+  `;
+
+  // Charger les photos après ouverture
+  loadPopupPhotos(poi.id);
+
+  return div;
+}, { maxWidth: 260 });
+
 
   marker.addTo(layers[cat]);
   markers[poi.id] = marker;
 }
+
+async function loadPopupPhotos(poiId) {
+  const container = document.getElementById(`popup-photos-${poiId}`);
+  if (!container) return;
+
+  const photos = await dbGetByIndex('photos', 'poiId', poiId);
+
+  if (!photos.length) {
+    container.innerHTML = `<div class="popup-no-photo">Aucune photo</div>`;
+    return;
+  }
+
+  // Limiter à 3 miniatures
+  const thumbs = photos.slice(0, 3);
+
+  const html = await Promise.all(thumbs.map(async p => {
+    // Normalisation iOS (au cas où)
+    if (!(p.blob instanceof Blob)) {
+      p.blob = new Blob([p.blob], { type: p.mimeType });
+    }
+
+    const url = URL.createObjectURL(p.blob);
+
+    return `
+      <img class="popup-thumb" src="${url}" onclick="openLightbox('${url}')" />
+    `;
+  }));
+
+  container.innerHTML = `
+    <div class="popup-thumb-row">
+      ${html.join('')}
+    </div>
+  `;
+}
+
 
 function removeMarkerFromMap(poiId) {
   if (markers[poiId]) {
