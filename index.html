@@ -16,39 +16,84 @@
     </head>
     <body>
 
-        <header>
-            <h1>SW : v19</h1>
-            <h1>HTML : v19</h1>
-            <p>coucou</p>
-            <!-- Bouton unique : reset complet -->
-            <button onclick="hardResetPWA()">Hard Reset</button>
+        <!-- ─── Vue : Carte ─────────────────────────── -->
+        <div id="view-map" class="app-view active">
+            <header>
+                <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
+                <div class="header-spacer"></div>
+                <span class="poi-count" id="poi-count">0 lieux</span>
+                <button class="btn-export" onclick="exportData()">Exporter</button>
+            </header>
 
-            <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
-            <div class="header-spacer"></div>
-            <span class="poi-count" id="poi-count">0 lieux</span>
-            <button class="btn-export" onclick="exportData()">Exporter</button>
-        </header>
+            <div class="filter-bar" id="filter-bar"></div>
 
-        <div class="filter-bar" id="filter-bar"></div>
+            <div class="main">
+                <div id="map"></div>
+                <div class="map-hint" id="map-hint">Appui long sur la carte pour ajouter un lieu</div>
 
-        <div class="main">
-        <div id="map"></div>
-        <div class="map-hint" id="map-hint">Appui sur la carte pour ajouter un lieu</div>
-
-        <div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
-        <div class="panel" id="panel">
-            <div class="panel-header">
-            <div class="panel-title" id="panel-title">Nouveau lieu</div>
-            <button class="btn-close" onclick="closePanel()">✕</button>
+                <div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+                <div class="panel" id="panel">
+                    <div class="panel-header">
+                        <div class="panel-title" id="panel-title">Nouveau lieu</div>
+                        <button class="btn-close" onclick="closePanel()">✕</button>
+                    </div>
+                    <div class="panel-body" id="panel-body"></div>
+                    <div class="panel-footer" id="panel-footer"></div>
+                </div>
             </div>
-            <div class="panel-body" id="panel-body"></div>
-            <div class="panel-footer" id="panel-footer"></div>
         </div>
+
+        <!-- ─── Vue : Liste ─────────────────────────── -->
+        <div id="view-list" class="app-view">
+            <header>
+                <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
+                <div class="header-spacer"></div>
+                <span class="poi-count" id="poi-count-list">0 lieux</span>
+            </header>
+            <div class="list-empty-state">
+                <span>📍</span>
+                <p>Votre liste de lieux apparaîtra ici.</p>
+            </div>
         </div>
+
+        <!-- ─── Vue : Paramètres ─────────────────────── -->
+        <div id="view-settings" class="app-view">
+            <header>
+                <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
+            </header>
+            <div class="settings-body">
+                <div class="settings-section">
+                    <div class="settings-section-title">Maintenance</div>
+                    <div class="settings-row">
+                        <div>
+                            <div class="settings-row-label">Réinitialisation complète</div>
+                            <div class="settings-row-desc">Vide le cache et désenregistre le Service Worker.</div>
+                        </div>
+                        <button class="btn-danger" onclick="hardResetPWA()">Hard Reset</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Barre de navigation ──────────────────── -->
+        <nav class="bottom-nav" id="bottom-nav">
+            <button class="nav-btn active" data-view="map" onclick="switchView('map', this)">
+                <span class="nav-icon">🗺️</span>
+                <span class="nav-label">Carte</span>
+            </button>
+            <button class="nav-btn" data-view="list" onclick="switchView('list', this)">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">Lieux</span>
+            </button>
+            <button class="nav-btn" data-view="settings" onclick="switchView('settings', this)">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Paramètres</span>
+            </button>
+        </nav>
 
         <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-        <img id="lightbox-img" src="" alt="">
+            <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+            <img id="lightbox-img" src="" alt="">
         </div>
 
         <div class="toast" id="toast"></div>

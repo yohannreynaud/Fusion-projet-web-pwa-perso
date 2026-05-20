@@ -780,6 +780,25 @@ function updatePoiCount() {
 }
 
 // ═══════════════════════════════════════════════
+// NAVIGATION PAR ONGLETS
+// ═══════════════════════════════════════════════
+function switchView(viewName, btnEl) {
+  // Masque toutes les vues
+  document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+  // Désactive tous les boutons nav
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+  // Active la vue et le bouton correspondants
+  document.getElementById(`view-${viewName}`).classList.add('active');
+  btnEl.classList.add('active');
+
+  // Si on revient sur la carte, forcer Leaflet à recalculer sa taille
+  if (viewName === 'map') {
+    setTimeout(() => map.invalidateSize(), 10);
+  }
+}
+
+// ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
 (async function init() {
