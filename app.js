@@ -227,9 +227,9 @@ function initMap() {
     layers[key] = L.layerGroup().addTo(map);
   }
 
-    let suppressNextDblclick = false;
     let lastTapTime = 0;
     let lastTapPos = null;
+    let lastSyntheticAddTime = 0;
     const DOUBLE_TAP_DELAY = 350;
     const TAP_MOVE_TOLERANCE = 15;
 
@@ -239,8 +239,7 @@ function initMap() {
     });
 
     map.on('dblclick', e => {
-        if (suppressNextDblclick) {
-            suppressNextDblclick = false;
+        if (Date.now() - lastSyntheticAddTime <= DOUBLE_TAP_DELAY) {
             return;
         }
         if (!e.latlng) return;
@@ -250,15 +249,35 @@ function initMap() {
 
     const mapContainer = map.getContainer();
     mapContainer.addEventListener('touchstart', e => {
-        if (e.touches.length !== 1) return;
+        if (e.touches.length !== 1) {
+            lastTapTime = 0;
+            lastTapPos = null;
+            return;
+        }
         const touch = e.touches[0];
         lastTapPos = { x: touch.clientX, y: touch.clientY };
+    }, { passive: true });
+
+    mapContainer.addEventListener('touchmove', e => {
+        if (!lastTapPos || e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - lastTapPos.x;
+        const dy = touch.clientY - lastTapPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_TOLERANCE) {
+            lastTapTime = 0;
+            lastTapPos = null;
+        }
     }, { passive: true });
 
     mapContainer.addEventListener('touchend', e => {
         if (!lastTapPos) return;
         const touch = e.changedTouches[0];
-        if (!touch) return;
+        if (!touch) {
+            lastTapTime = 0;
+            lastTapPos = null;
+            return;
+        }
+
         const dx = touch.clientX - lastTapPos.x;
         const dy = touch.clientY - lastTapPos.y;
         if (Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_TOLERANCE) {
@@ -273,14 +292,17 @@ function initMap() {
             const latlng = map.containerPointToLatLng(containerPoint);
             pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
             openAddForm();
-            suppressNextDblclick = true;
+            lastSyntheticAddTime = now;
             lastTapTime = 0;
             lastTapPos = null;
+            e.preventDefault();
+            e.stopPropagation();
             return;
         }
 
         lastTapTime = now;
-    }, { passive: true });
+        lastTapPos = null;
+    }, { passive: false });
 
   map.on('movestart', hideHint);
 }
