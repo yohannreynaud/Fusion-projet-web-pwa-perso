@@ -212,7 +212,8 @@ function initMap() {
     zoomControl: false,
     tap: false,              // ← essentiel sur iOS
     touchZoom: true,
-    dragging: true
+    dragging: true,
+    doubleClickZoom: false
     });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -226,82 +227,82 @@ function initMap() {
     layers[key] = L.layerGroup().addTo(map);
   }
 
-    let longPressTimer = null;
-    let longPressMoved = false;
-    const LONG_PRESS_DURATION = 600;
-    // Tolérance de déplacement en pixels avant d'annuler le long-press
-    const MOVE_TOLERANCE = 10;
-    let touchStartPos = null;
+    let lastTapTime = 0;
+    let lastTapPos = null;
+    let lastSyntheticAddTime = 0;
+    const DOUBLE_TAP_DELAY = 350;
+    const TAP_MOVE_TOLERANCE = 15;
 
     map.on('contextmenu', e => {
         // Bloque le menu contextuel natif iOS/Android
         e.originalEvent.preventDefault();
     });
 
-    // ── Desktop : mousedown uniquement ──────────────────────────────────────
-    map.on('mousedown', e => {
-        if (e.originalEvent.button !== 0) return; // clic gauche seulement
-        const latlng = e.latlng;
-        if (!latlng) return;
-        longPressTimer = setTimeout(() => {
-            longPressTimer = null;
-            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
-            openAddForm();
-        }, LONG_PRESS_DURATION);
+    map.on('dblclick', e => {
+        if (Date.now() - lastSyntheticAddTime <= DOUBLE_TAP_DELAY) {
+            return;
+        }
+        if (!e.latlng) return;
+        pendingLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
+        openAddForm();
     });
 
-    map.on('mouseup mousemove', () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-    });
-
-    // ── Mobile : listeners natifs sur le conteneur de la carte ──────────────
-    // On s'attache directement sur le DOM (pas sur les events Leaflet) pour
-    // éviter que tap:false + dragging ne swallowe les coordonnées ou annule
-    // trop tôt le timer.
     const mapContainer = map.getContainer();
-
     mapContainer.addEventListener('touchstart', e => {
-        // Ne pas bloquer le scroll/zoom natif de Leaflet
-        if (e.touches.length > 1) return; // pinch-zoom → on ignore
+        if (e.touches.length !== 1) {
+            lastTapTime = 0;
+            lastTapPos = null;
+            return;
+        }
         const touch = e.touches[0];
-        touchStartPos = { x: touch.clientX, y: touch.clientY };
-        longPressMoved = false;
-
-        // Convertir les coordonnées pixel → LatLng via Leaflet
-        const containerPoint = map.mouseEventToContainerPoint(touch);
-        const latlng = map.containerPointToLatLng(containerPoint);
-
-        longPressTimer = setTimeout(() => {
-            longPressTimer = null;
-            if (longPressMoved) return; // annulé si bougé
-            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
-            // Vibration légère sur les appareils qui le supportent
-            if (navigator.vibrate) navigator.vibrate(40);
-            openAddForm();
-        }, LONG_PRESS_DURATION);
+        lastTapPos = { x: touch.clientX, y: touch.clientY };
     }, { passive: true });
 
     mapContainer.addEventListener('touchmove', e => {
-        if (!touchStartPos || !longPressTimer) return;
+        if (!lastTapPos || e.touches.length !== 1) return;
         const touch = e.touches[0];
-        const dx = touch.clientX - touchStartPos.x;
-        const dy = touch.clientY - touchStartPos.y;
-        if (Math.sqrt(dx * dx + dy * dy) > MOVE_TOLERANCE) {
-            longPressMoved = true;
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
+        const dx = touch.clientX - lastTapPos.x;
+        const dy = touch.clientY - lastTapPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_TOLERANCE) {
+            lastTapTime = 0;
+            lastTapPos = null;
         }
     }, { passive: true });
 
-    mapContainer.addEventListener('touchend', () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-        touchStartPos = null;
-    }, { passive: true });
+    mapContainer.addEventListener('touchend', e => {
+        if (!lastTapPos) return;
+        const touch = e.changedTouches[0];
+        if (!touch) {
+            lastTapTime = 0;
+            lastTapPos = null;
+            return;
+        }
 
-    mapContainer.addEventListener('touchcancel', () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-        touchStartPos = null;
-    }, { passive: true });
+        const dx = touch.clientX - lastTapPos.x;
+        const dy = touch.clientY - lastTapPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_TOLERANCE) {
+            lastTapTime = 0;
+            lastTapPos = null;
+            return;
+        }
+
+        const now = Date.now();
+        if (now - lastTapTime <= DOUBLE_TAP_DELAY) {
+            const containerPoint = map.mouseEventToContainerPoint(touch);
+            const latlng = map.containerPointToLatLng(containerPoint);
+            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
+            openAddForm();
+            lastSyntheticAddTime = now;
+            lastTapTime = 0;
+            lastTapPos = null;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
+        lastTapTime = now;
+        lastTapPos = null;
+    }, { passive: false });
 
   map.on('movestart', hideHint);
 }
@@ -452,10 +453,11 @@ function openFilterMenu(context) {
   const favRow = `
     <div class="filter-row${favOnly ? ' selected' : ''}"
          style="color:#F5C400"
+         data-filter="favorites"
          onclick="toggleFavoritesFilter(this)">
       <span class="filter-row-icon">⭐</span>
       <span class="filter-row-label">Favoris</span>
-      <span class="filter-row-check"></span>
+      <span class="filter-row-check"><span class="filter-row-check-icon">✓</span></span>
     </div>
     <div class="filter-divider"></div>`;
 
@@ -464,10 +466,11 @@ function openFilterMenu(context) {
     return `
       <div class="filter-row${sel ? ' selected' : ''}"
            style="color:${cat.color}"
+           data-category="${key}"
            onclick="toggleFilterRow(this, '${key}')">
         <span class="filter-row-icon">${cat.icon}</span>
         <span class="filter-row-label">${cat.label}</span>
-        <span class="filter-row-check"></span>
+        <span class="filter-row-check"><span class="filter-row-check-icon">✓</span></span>
       </div>`;
   }).join('');
 
@@ -534,6 +537,23 @@ function applyFilters() {
     renderList();
     updateFilterButton('list', activeListCategories);
   }
+
+  if (document.getElementById('filter-menu').classList.contains('open')) {
+    refreshFilterMenuSelection();
+  }
+}
+
+function refreshFilterMenuSelection() {
+  const cats = currentFilterContext === 'map' ? activeCategories : activeListCategories;
+  const favOnly = currentFilterContext === 'map' ? filterFavoritesOnlyMap : filterFavoritesOnlyList;
+
+  document.querySelectorAll('#filter-menu-body .filter-row').forEach(row => {
+    if (row.dataset.filter === 'favorites') {
+      row.classList.toggle('selected', favOnly);
+    } else {
+      row.classList.toggle('selected', cats.has(row.dataset.category));
+    }
+  });
 }
 
 function updateFilterButton(context, cats) {
