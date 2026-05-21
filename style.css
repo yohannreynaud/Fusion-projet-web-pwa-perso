@@ -209,12 +209,13 @@ header {
   height: 100%;
 }
 .filter-row.selected .filter-row-check {
-  background: #9a9ea4;
-  border-color: #9a9ea4;
-  color: #fff;
+  background: color-mix(in srgb, currentColor 30%, #fff 70%);
+  border-color: currentColor;
+  color: currentColor;
 }
 .filter-row.selected .filter-row-check-icon {
   opacity: 1;
+  color: currentColor;
 }
 
 .filter-menu-footer {
