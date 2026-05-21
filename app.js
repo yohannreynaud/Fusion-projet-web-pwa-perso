@@ -212,7 +212,8 @@ function initMap() {
     zoomControl: false,
     tap: false,              // ← essentiel sur iOS
     touchZoom: true,
-    dragging: true
+    dragging: true,
+    doubleClickZoom: false
     });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -226,82 +227,16 @@ function initMap() {
     layers[key] = L.layerGroup().addTo(map);
   }
 
-    let longPressTimer = null;
-    let longPressMoved = false;
-    const LONG_PRESS_DURATION = 600;
-    // Tolérance de déplacement en pixels avant d'annuler le long-press
-    const MOVE_TOLERANCE = 10;
-    let touchStartPos = null;
-
     map.on('contextmenu', e => {
         // Bloque le menu contextuel natif iOS/Android
         e.originalEvent.preventDefault();
     });
 
-    // ── Desktop : mousedown uniquement ──────────────────────────────────────
-    map.on('mousedown', e => {
-        if (e.originalEvent.button !== 0) return; // clic gauche seulement
-        const latlng = e.latlng;
-        if (!latlng) return;
-        longPressTimer = setTimeout(() => {
-            longPressTimer = null;
-            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
-            openAddForm();
-        }, LONG_PRESS_DURATION);
+    map.on('dblclick', e => {
+        if (!e.latlng) return;
+        pendingLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
+        openAddForm();
     });
-
-    map.on('mouseup mousemove', () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-    });
-
-    // ── Mobile : listeners natifs sur le conteneur de la carte ──────────────
-    // On s'attache directement sur le DOM (pas sur les events Leaflet) pour
-    // éviter que tap:false + dragging ne swallowe les coordonnées ou annule
-    // trop tôt le timer.
-    const mapContainer = map.getContainer();
-
-    mapContainer.addEventListener('touchstart', e => {
-        // Ne pas bloquer le scroll/zoom natif de Leaflet
-        if (e.touches.length > 1) return; // pinch-zoom → on ignore
-        const touch = e.touches[0];
-        touchStartPos = { x: touch.clientX, y: touch.clientY };
-        longPressMoved = false;
-
-        // Convertir les coordonnées pixel → LatLng via Leaflet
-        const containerPoint = map.mouseEventToContainerPoint(touch);
-        const latlng = map.containerPointToLatLng(containerPoint);
-
-        longPressTimer = setTimeout(() => {
-            longPressTimer = null;
-            if (longPressMoved) return; // annulé si bougé
-            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
-            // Vibration légère sur les appareils qui le supportent
-            if (navigator.vibrate) navigator.vibrate(40);
-            openAddForm();
-        }, LONG_PRESS_DURATION);
-    }, { passive: true });
-
-    mapContainer.addEventListener('touchmove', e => {
-        if (!touchStartPos || !longPressTimer) return;
-        const touch = e.touches[0];
-        const dx = touch.clientX - touchStartPos.x;
-        const dy = touch.clientY - touchStartPos.y;
-        if (Math.sqrt(dx * dx + dy * dy) > MOVE_TOLERANCE) {
-            longPressMoved = true;
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    }, { passive: true });
-
-    mapContainer.addEventListener('touchend', () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-        touchStartPos = null;
-    }, { passive: true });
-
-    mapContainer.addEventListener('touchcancel', () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-        touchStartPos = null;
-    }, { passive: true });
 
   map.on('movestart', hideHint);
 }
