@@ -453,10 +453,11 @@ function openFilterMenu(context) {
   const favRow = `
     <div class="filter-row${favOnly ? ' selected' : ''}"
          style="color:#F5C400"
+         data-filter="favorites"
          onclick="toggleFavoritesFilter(this)">
       <span class="filter-row-icon">⭐</span>
       <span class="filter-row-label">Favoris</span>
-      <span class="filter-row-check"></span>
+      <span class="filter-row-check"><span class="filter-row-check-icon">✓</span></span>
     </div>
     <div class="filter-divider"></div>`;
 
@@ -465,10 +466,11 @@ function openFilterMenu(context) {
     return `
       <div class="filter-row${sel ? ' selected' : ''}"
            style="color:${cat.color}"
+           data-category="${key}"
            onclick="toggleFilterRow(this, '${key}')">
         <span class="filter-row-icon">${cat.icon}</span>
         <span class="filter-row-label">${cat.label}</span>
-        <span class="filter-row-check"></span>
+        <span class="filter-row-check"><span class="filter-row-check-icon">✓</span></span>
       </div>`;
   }).join('');
 
@@ -535,6 +537,23 @@ function applyFilters() {
     renderList();
     updateFilterButton('list', activeListCategories);
   }
+
+  if (document.getElementById('filter-menu').classList.contains('open')) {
+    refreshFilterMenuSelection();
+  }
+}
+
+function refreshFilterMenuSelection() {
+  const cats = currentFilterContext === 'map' ? activeCategories : activeListCategories;
+  const favOnly = currentFilterContext === 'map' ? filterFavoritesOnlyMap : filterFavoritesOnlyList;
+
+  document.querySelectorAll('#filter-menu-body .filter-row').forEach(row => {
+    if (row.dataset.filter === 'favorites') {
+      row.classList.toggle('selected', favOnly);
+    } else {
+      row.classList.toggle('selected', cats.has(row.dataset.category));
+    }
+  });
 }
 
 function updateFilterButton(context, cats) {
