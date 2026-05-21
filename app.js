@@ -683,6 +683,14 @@ async function savePoi() {
     if (p.existingId) photoRefs.push({ photoId: p.existingId });
   }
 
+  if (editPoiId) {
+    const existingPhotos = await dbGetByIndex('photos', 'poiId', editPoiId);
+    const keptIds = new Set(formPhotos.filter(p => p.existingId).map(p => p.existingId));
+    for (const ep of existingPhotos) {
+      if (!keptIds.has(ep.photoId)) await dbDelete('photos', ep.photoId);
+    }
+  }
+
   for (const p of formPhotos) {
     if (!p.existingId) {
       const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -695,14 +703,6 @@ async function savePoi() {
         createdAt: now,
       });
       photoRefs.push({ photoId });
-    }
-  }
-
-  if (editPoiId) {
-    const existingPhotos = await dbGetByIndex('photos', 'poiId', editPoiId);
-    const keptIds = new Set(formPhotos.filter(p => p.existingId).map(p => p.existingId));
-    for (const ep of existingPhotos) {
-      if (!keptIds.has(ep.photoId)) await dbDelete('photos', ep.photoId);
     }
   }
 
