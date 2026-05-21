@@ -3,14 +3,17 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Paris Map — Prototype Offline</title>
+        <title>Paris'PAM</title>
         <meta name="theme-color" content="#2A9D8F">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="mobile-web-app-capable" content="yes">
         <link rel="manifest" href="manifest.json">
         <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/icon-192.svg">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
-        <meta name="apple-mobile-web-app-title" content="Paris Map">
+        <meta name="apple-mobile-web-app-title" content="Paris'PAM">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Pirata+One&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="libs/leaflet.min.css"/>
         <link rel="stylesheet" href="style.css">
     </head>
@@ -19,7 +22,7 @@
         <!-- ─── Vue : Carte ─────────────────────────── -->
         <div id="view-map" class="app-view active">
             <header>
-                <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
+                <div class="logo">Paris'PAM</div>
                 <div class="header-spacer"></div>
                 <span class="poi-count" id="poi-count">0 lieux</span>
                 <button class="btn-export" onclick="exportData()">Exporter</button>
@@ -52,7 +55,7 @@
         <!-- ─── Vue : Liste ─────────────────────────── -->
         <div id="view-list" class="app-view">
             <header>
-                <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
+                <div class="logo">Paris'<span>PAM</span></div>
                 <div class="header-spacer"></div>
                 <span class="poi-count" id="poi-count-list">0 lieux</span>
             </header>
@@ -73,7 +76,7 @@
         <!-- ─── Vue : Paramètres ─────────────────────── -->
         <div id="view-settings" class="app-view">
             <header>
-                <div class="logo">Paris<span>Map</span> <span style="font-family:sans-serif;font-size:.9rem">🗺️</span></div>
+                <div class="logo">Paris'<span>PAM</span></div>
             </header>
             <div class="settings-body">
                 <div class="settings-section">

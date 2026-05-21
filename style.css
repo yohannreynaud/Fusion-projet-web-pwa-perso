@@ -1,5 +1,5 @@
 :root {
-  --bg: #F5F3EE;
+  --bg: #f5e9cc;
   --surface: #FAFAF8;
   --border: #E2DDD6;
   --text: #1C1917;
@@ -43,10 +43,10 @@ header {
   flex-shrink: 0;
 }
 .logo {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: 'Pirata One', serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   color: var(--text);
   display: flex;
   align-items: center;
