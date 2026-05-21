@@ -43,7 +43,7 @@ Application web **100% locale**, zéro backend, zéro API serveur. Après un pre
 | UI | **Vanilla JS + CSS custom** | Zéro dépendance, bundle minimal |
 | Build | **Aucun** (HTML unique) | Prototype livrable immédiatement |
 
-> **Choix délibéré : pas de framework (React/Vue).** Pour un prototype, un seul fichier HTML + 2 JS + 1 CSS = déploiement par glisser-déposer.
+> **Choix délibéré : pas de framework (Solid/React/Vue).** Pour un prototype, un seul fichier HTML + 2 JS + 1 CSS = déploiement par glisser-déposer.
 
 ---
 

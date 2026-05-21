@@ -6,7 +6,7 @@ const CATEGORIES = {
   food:         { label: "Restauration",  icon: "🍽️", color: "#F4A261" },
   nature:       { label: "Nature",        icon: "🌿", color: "#2A9D8F" },
   architecture: { label: "Architecture",  icon: "🏛️", color: "#457B9D" },
-  secret:       { label: "Secret",        icon: "⭐", color: "#9B5DE5" },
+  secret:       { label: "Secret",        icon: "❓", color: "#9B5DE5" },
   other:        { label: "Autre",         icon: "📍", color: "#6B7280" },
 };
 
@@ -198,6 +198,8 @@ let formPhotos = [];
 let formTags = [];
 let activeCategories = new Set(Object.keys(CATEGORIES));
 let allPois = [];
+let filterFavoritesOnlyMap = false;
+let filterFavoritesOnlyList = false;
 
 // ═══════════════════════════════════════════════
 // MAP INIT
@@ -315,13 +317,18 @@ function hideHint() {
 // ═══════════════════════════════════════════════
 // MARKERS
 // ═══════════════════════════════════════════════
-function makeMarkerIcon(category) {
+function makeMarkerIcon(category, isFavorite = false) {
   const cat = CATEGORIES[category] || CATEGORIES.other;
+  const favBadge = isFavorite
+    ? `<circle cx="26" cy="6" r="6" fill="#F5C400" stroke="white" stroke-width="1.5"/>
+       <text x="26" y="10" text-anchor="middle" font-size="8" font-family="sans-serif">★</text>`
+    : '';
   const svg = `<svg viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
     <path d="M16 0C9.37 0 4 5.37 4 12c0 9 12 28 12 28s12-19 12-28C28 5.37 22.63 0 16 0z"
       fill="${cat.color}" stroke="rgba(0,0,0,.2)" stroke-width="1"/>
     <circle cx="16" cy="12" r="6" fill="white" fill-opacity=".9"/>
     <text x="16" y="16" text-anchor="middle" font-size="8" font-family="sans-serif">${cat.icon}</text>
+    ${favBadge}
   </svg>`;
   return L.divIcon({
     html: `<div class="custom-marker">${svg}</div>`,
@@ -335,7 +342,7 @@ function makeMarkerIcon(category) {
 function addMarkerToMap(poi) {
   const cat = poi.content.category || 'other';
   const marker = L.marker([poi.location.lat, poi.location.lng], {
-    icon: makeMarkerIcon(cat),
+    icon: makeMarkerIcon(cat, !!poi.favorite),
   });
   marker.bindPopup(() => {
   const div = document.createElement('div');
@@ -418,6 +425,7 @@ function openPanel(title) {
 function closePanel() {
     document.getElementById('panel').classList.remove('open');
     document.getElementById('panel-overlay').classList.remove('open'); // ← ajouter
+    document.getElementById('panel-fav-btn').style.display = 'none';
     panelMode = null;
     editPoiId = null;
     pendingLatLng = null;
@@ -438,9 +446,20 @@ let currentFilterContext = 'map'; // 'map' | 'list'
 function openFilterMenu(context) {
   currentFilterContext = context;
   const cats = context === 'map' ? activeCategories : activeListCategories;
+  const favOnly = context === 'map' ? filterFavoritesOnlyMap : filterFavoritesOnlyList;
   const body = document.getElementById('filter-menu-body');
 
-  body.innerHTML = Object.entries(CATEGORIES).map(([key, cat]) => {
+  const favRow = `
+    <div class="filter-row${favOnly ? ' selected' : ''}"
+         style="color:#F5C400"
+         onclick="toggleFavoritesFilter(this)">
+      <span class="filter-row-icon">⭐</span>
+      <span class="filter-row-label">Favoris</span>
+      <span class="filter-row-check"></span>
+    </div>
+    <div class="filter-divider"></div>`;
+
+  const catRows = Object.entries(CATEGORIES).map(([key, cat]) => {
     const sel = cats.has(key);
     return `
       <div class="filter-row${sel ? ' selected' : ''}"
@@ -451,6 +470,8 @@ function openFilterMenu(context) {
         <span class="filter-row-check"></span>
       </div>`;
   }).join('');
+
+  body.innerHTML = favRow + catRows;
 
   document.getElementById('filter-overlay').classList.add('open');
   document.getElementById('filter-menu').classList.add('open');
@@ -468,6 +489,17 @@ function toggleFilterRow(el, key) {
   applyFilters();
 }
 
+function toggleFavoritesFilter(el) {
+  if (currentFilterContext === 'map') {
+    filterFavoritesOnlyMap = !filterFavoritesOnlyMap;
+    el.classList.toggle('selected', filterFavoritesOnlyMap);
+  } else {
+    filterFavoritesOnlyList = !filterFavoritesOnlyList;
+    el.classList.toggle('selected', filterFavoritesOnlyList);
+  }
+  applyFilters();
+}
+
 function selectAllCategories() {
   const cats = currentFilterContext === 'map' ? activeCategories : activeListCategories;
   Object.keys(CATEGORIES).forEach(k => cats.add(k));
@@ -480,12 +512,21 @@ function selectAllCategories() {
 
 function applyFilters() {
   if (currentFilterContext === 'map') {
-    // Sync les layer groups Leaflet
     for (const key of Object.keys(CATEGORIES)) {
       if (activeCategories.has(key)) {
         if (!map.hasLayer(layers[key])) layers[key].addTo(map);
       } else {
         if (map.hasLayer(layers[key])) map.removeLayer(layers[key]);
+      }
+    }
+    for (const poi of allPois) {
+      const marker = markers[poi.id];
+      if (!marker) continue;
+      const cat = poi.content.category || 'other';
+      if (filterFavoritesOnlyMap && !poi.favorite) {
+        layers[cat].removeLayer(marker);
+      } else if (activeCategories.has(cat)) {
+        if (!layers[cat].hasLayer(marker)) layers[cat].addLayer(marker);
       }
     }
     updateFilterButton('map', activeCategories);
@@ -498,7 +539,8 @@ function applyFilters() {
 function updateFilterButton(context, cats) {
   const total = Object.keys(CATEGORIES).length;
   const active = cats.size;
-  const isFiltered = active < total;
+  const favOnly = context === 'map' ? filterFavoritesOnlyMap : filterFavoritesOnlyList;
+  const isFiltered = active < total || favOnly;
 
   const btn = document.getElementById(`btn-filter-${context}`);
   const badge = document.getElementById(`filter-count-${context}`);
@@ -528,6 +570,7 @@ function openAddForm() {
   editPoiId = null;
   formPhotos = [];
   formTags = [];
+  document.getElementById('panel-fav-btn').style.display = 'none';
   renderForm(null);
   openPanel('Nouveau lieu');
 }
@@ -539,6 +582,7 @@ async function openEditForm(poiId) {
   const photos = await dbGetByIndex('photos', 'poiId', poiId);
   formPhotos = photos.map(p => ({ blob: p.blob, url: URL.createObjectURL(p.blob), existingId: p.photoId }));
   formTags = [...(poi.content.tags || [])];
+  document.getElementById('panel-fav-btn').style.display = 'none';
   renderForm(poi);
   openPanel('Modifier le lieu');
 }
@@ -738,6 +782,12 @@ async function openDetail(poiId) {
   const photos = await dbGetByIndex('photos', 'poiId', poiId);
   const cat = CATEGORIES[poi.content.category] || CATEGORIES.other;
 
+  const favBtn = document.getElementById('panel-fav-btn');
+  favBtn.style.display = '';
+  favBtn.dataset.poiId = poiId;
+  favBtn.textContent = poi.favorite ? '🌟' : '⭐';
+  favBtn.classList.toggle('active', !!poi.favorite);
+
   const body = document.getElementById('panel-body');
   const footer = document.getElementById('panel-footer');
 
@@ -779,6 +829,31 @@ async function deletePoi(poiId) {
   renderList();
   closePanel();
   showToast('🗑️ Lieu supprimé');
+}
+
+async function toggleFavorite() {
+  const btn = document.getElementById('panel-fav-btn');
+  const poiId = btn.dataset.poiId;
+  const poi = await dbGet('poi', poiId);
+  poi.favorite = !poi.favorite;
+  poi.updatedAt = new Date().toISOString();
+  await dbPut('poi', poi);
+  btn.textContent = poi.favorite ? '🌟' : '⭐';
+  btn.classList.toggle('active', poi.favorite);
+  if (markers[poiId]) {
+    markers[poiId].setIcon(makeMarkerIcon(poi.content.category || 'other', poi.favorite));
+    if (filterFavoritesOnlyMap) {
+      const cat = poi.content.category || 'other';
+      if (!poi.favorite) {
+        layers[cat].removeLayer(markers[poiId]);
+      } else if (activeCategories.has(cat)) {
+        layers[cat].addLayer(markers[poiId]);
+      }
+    }
+  }
+  allPois = await dbGetAll('poi');
+  renderList();
+  showToast(poi.favorite ? '🌟 Ajouté aux favoris' : '⭐ Retiré des favoris');
 }
 
 // ═══════════════════════════════════════════════
@@ -894,7 +969,8 @@ async function renderList() {
   if (!body) return;
 
   const filtered = allPois.filter(poi =>
-    activeListCategories.has(poi.content.category || 'other')
+    activeListCategories.has(poi.content.category || 'other') &&
+    (!filterFavoritesOnlyList || !!poi.favorite)
   );
   filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -941,6 +1017,7 @@ async function renderList() {
         <div class="list-card-header">
           <span class="list-card-badge" style="background:${cat.color}">${cat.icon} ${cat.label}</span>
           <div class="list-card-title">${escHtml(poi.content.title || 'Sans titre')}</div>
+          ${poi.favorite ? '<span class="list-card-fav" title="Favori">⭐</span>' : ''}
         </div>
         ${descHtml}
         ${photosHtml}

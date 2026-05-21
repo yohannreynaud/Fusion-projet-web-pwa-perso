@@ -162,6 +162,11 @@ header {
   flex-direction: column;
   gap: 6px;
 }
+.filter-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
 
 .filter-row {
   display: flex;
@@ -305,6 +310,18 @@ header {
   transition: background .15s;
 }
 .btn-close:hover { background: var(--border); color: var(--text); }
+.btn-star {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; cursor: pointer;
+  border-radius: 6px;
+  font-size: 1.3rem;
+  line-height: 1;
+  transition: transform .15s;
+  flex-shrink: 0;
+}
+.btn-star:hover { transform: scale(1.2); }
+.btn-star.active { filter: drop-shadow(0 0 3px rgba(245,196,0,.9)); }
 
 .panel-body {
   flex: 1;
@@ -782,6 +799,7 @@ header {
 }
 
 .list-card-actions .popup-btn { flex: 1; }
+.list-card-fav { font-size: .9rem; flex-shrink: 0; }
 
 .list-card-thumbs {
   display: flex;
