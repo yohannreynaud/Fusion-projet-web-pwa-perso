@@ -227,16 +227,60 @@ function initMap() {
     layers[key] = L.layerGroup().addTo(map);
   }
 
+    let suppressNextDblclick = false;
+    let lastTapTime = 0;
+    let lastTapPos = null;
+    const DOUBLE_TAP_DELAY = 350;
+    const TAP_MOVE_TOLERANCE = 15;
+
     map.on('contextmenu', e => {
         // Bloque le menu contextuel natif iOS/Android
         e.originalEvent.preventDefault();
     });
 
     map.on('dblclick', e => {
+        if (suppressNextDblclick) {
+            suppressNextDblclick = false;
+            return;
+        }
         if (!e.latlng) return;
         pendingLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
         openAddForm();
     });
+
+    const mapContainer = map.getContainer();
+    mapContainer.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        lastTapPos = { x: touch.clientX, y: touch.clientY };
+    }, { passive: true });
+
+    mapContainer.addEventListener('touchend', e => {
+        if (!lastTapPos) return;
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+        const dx = touch.clientX - lastTapPos.x;
+        const dy = touch.clientY - lastTapPos.y;
+        if (Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_TOLERANCE) {
+            lastTapTime = 0;
+            lastTapPos = null;
+            return;
+        }
+
+        const now = Date.now();
+        if (now - lastTapTime <= DOUBLE_TAP_DELAY) {
+            const containerPoint = map.mouseEventToContainerPoint(touch);
+            const latlng = map.containerPointToLatLng(containerPoint);
+            pendingLatLng = { lat: latlng.lat, lng: latlng.lng };
+            openAddForm();
+            suppressNextDblclick = true;
+            lastTapTime = 0;
+            lastTapPos = null;
+            return;
+        }
+
+        lastTapTime = now;
+    }, { passive: true });
 
   map.on('movestart', hideHint);
 }
