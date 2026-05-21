@@ -199,9 +199,9 @@ header {
   transition: all .15s;
   flex-shrink: 0;
 }
-.filter-row.selected .filter-row-check {
-  background: currentColor;
-  border-color: currentColor;
+..filter-row.selected .filter-row-check {
+  background: #9a9ea4;
+  border-color: #9a9ea4;
   color: #fff;
 }
 /* Le ✓ à l'intérieur du cercle */
