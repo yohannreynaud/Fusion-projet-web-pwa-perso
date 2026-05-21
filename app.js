@@ -889,15 +889,13 @@ function toggleListCategory(key) {
   renderList();
 }
 
-function renderList() {
+async function renderList() {
   const body = document.getElementById('list-body');
   if (!body) return;
 
   const filtered = allPois.filter(poi =>
     activeListCategories.has(poi.content.category || 'other')
   );
-
-  // Tri par date de création décroissante
   filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   document.getElementById('poi-count-list').textContent =
@@ -912,6 +910,16 @@ function renderList() {
     return;
   }
 
+  // Charger toutes les photos en parallèle
+  const photosMap = {};
+  await Promise.all(filtered.map(async poi => {
+    const photos = await dbGetByIndex('photos', 'poiId', poi.id);
+    photosMap[poi.id] = photos.slice(0, 3).map(p => {
+      if (!(p.blob instanceof Blob)) p.blob = new Blob([p.blob], { type: p.mimeType });
+      return URL.createObjectURL(p.blob);
+    });
+  }));
+
   body.innerHTML = filtered.map(poi => {
     const cat = CATEGORIES[poi.content.category] || CATEGORIES.other;
     const tagsHtml = (poi.content.tags || []).slice(0, 4)
@@ -921,6 +929,13 @@ function renderList() {
     const tagsSection = tagsHtml
       ? `<div class="list-card-tags">${tagsHtml}</div>` : '';
 
+    const urls = photosMap[poi.id] || [];
+    const photosHtml = urls.length
+      ? `<div class="list-card-thumbs">
+           ${urls.map(url => `<img class="list-card-thumb" src="${url}" onclick="openLightbox('${url}')">`).join('')}
+         </div>`
+      : '';
+
     return `
       <div class="list-card">
         <div class="list-card-header">
@@ -928,6 +943,7 @@ function renderList() {
           <div class="list-card-title">${escHtml(poi.content.title || 'Sans titre')}</div>
         </div>
         ${descHtml}
+        ${photosHtml}
         ${tagsSection}
         <div class="list-card-actions">
           <button class="popup-btn" onclick="openDetail('${poi.id}')">Voir détails</button>

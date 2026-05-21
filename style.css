@@ -783,6 +783,23 @@ header {
 
 .list-card-actions .popup-btn { flex: 1; }
 
+.list-card-thumbs {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px 10px;
+}
+
+.list-card-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity .15s;
+}
+.list-card-thumb:hover { opacity: .85; }
+
 /* ═══════════════════════════════════════════
    VUE PARAMÈTRES
 ═══════════════════════════════════════════ */
